@@ -209,7 +209,14 @@ def main(argv=None):
         print('dry run: nothing written')
         return
     if new_rows:
-        ws.append_rows(new_rows, value_input_option='RAW', insert_data_option='INSERT_ROWS')
+        # Write right after the last filled row. append_rows() lets Google
+        # pick the spot, and it skips past blank-but-formatted rows (it once
+        # put leads under 94 empty rows).
+        start = len(values) + 1
+        end = start + len(new_rows) - 1
+        if end > ws.row_count:
+            ws.add_rows(end - ws.row_count)
+        ws.update(range_name=f'A{start}:{a1(end, len(headers))}', values=new_rows, value_input_option='RAW')
     if updates:
         ws.batch_update(updates, value_input_option='RAW')
     print('written')
