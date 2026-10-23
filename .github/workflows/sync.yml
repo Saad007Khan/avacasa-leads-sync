@@ -1,0 +1,33 @@
+name: Leads to sheet
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # GitHub's minimum; runs can start a few minutes late
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only print what would change'
+        type: boolean
+        default: true
+
+# One run at a time, so two runs can never hand out the same Lead ID.
+concurrency:
+  group: leads-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Sync
+        env:
+          MONGO_CONNECTION_STRING: ${{ secrets.MONGO_CONNECTION_STRING }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: python sync.py ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
