@@ -45,8 +45,37 @@ SESSION_KEYS = ('duration', 'traits', 'top_props', 'interactions')
 # a header missing from the sheet is simply skipped.
 EXTRA_COLUMNS = {
     'properties viewed': 'props_viewed', 'locations browsed': 'locs_browsed', 'came from': 'came_from',
-    'visitor city': 'visitor_city', 'email type': 'email_type',
+    'visitor city': 'visitor_city', 'email type': 'email_type', 'guides read': 'guides_read',
+    'price band viewed': 'price_band', 'landing page': 'landing_page', 'device': 'device',
+    'engagement': 'engagement',
 }
+
+
+def inr(v):
+    """1424363 -> '₹14.2 L', 50000000 -> '₹5 Cr'. Values are plain rupees."""
+    if not isinstance(v, (int, float)) or v <= 0:
+        return ''
+    if v >= 1e7:
+        return f'₹{v / 1e7:.2f}'.rstrip('0').rstrip('.') + ' Cr'
+    return f'₹{v / 1e5:.1f}'.rstrip('0').rstrip('.') + ' L'
+
+
+def price_band(b):
+    lo, hi, mid = inr((b or {}).get('min')), inr((b or {}).get('max')), inr((b or {}).get('median'))
+    if not lo:
+        return ''
+    return lo if lo == hi else f'{lo} to {hi} (median {mid})'
+
+
+def engagement(j):
+    bits = []
+    if j.get('pagesViewedCount'):
+        bits.append(f"{j['pagesViewedCount']} pages")
+    if j.get('totalTimeOnSiteSec'):
+        bits.append(f"{max(1, round(j['totalTimeOnSiteSec'] / 60))} min on site")
+    if j.get('timeToFillFormSec'):
+        bits.append(f"form filled in {j['timeToFillFormSec']} s")
+    return ' · '.join(bits)
 
 
 def digits(v):
@@ -94,7 +123,13 @@ def lead_row(doc, lead_id):
     referrer = re.sub(r'^(https?://|android-app://)(www\.)?', '', str(attribution.get('referrer') or '')).split('/')[0]
     geo = doc.get('geo') or {}
     intel = doc.get('emailIntel') or {}
+    device = ((doc.get('context') or {}).get('device') or {})
     return {
+        'guides_read': ', '.join(str(x) for x in (journey.get('guidesRead') or [])),
+        'price_band': price_band(journey.get('viewedPriceBand')),
+        'landing_page': str(attribution.get('landingPage') or ''),
+        'device': ' · '.join(str(device[k]) for k in ('deviceType', 'os', 'browser') if device.get(k)),
+        'engagement': engagement(journey),
         'props_viewed': ', '.join(p.get('name') for p in (journey.get('propertiesViewed') or [])
                                   if isinstance(p, dict) and p.get('name')),
         'locs_browsed': ', '.join(str(x) for x in (journey.get('locationsBrowsed') or [])),
