@@ -1,6 +1,6 @@
 # avacasa-leads-sync
 
-Twice a day (09:00 and 21:00 IST), copies new website leads from the database (`lead_preferences`)
+Three times a day (09:00, 15:00 and 21:00 IST), copies new website leads from the database (`lead_preferences`)
 into the **Master Leads** tab of `Avacasa_Leads_Master`, and fills each lead's
 session columns from their latest buyer session. Replaces the Gmail Apps Script.
 

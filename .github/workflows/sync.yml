@@ -2,7 +2,7 @@ name: Leads to sheet
 
 on:
   schedule:
-    - cron: '30 3,15 * * *'   # 09:00 and 21:00 IST; GitHub can start runs a little late
+    - cron: '30 3,9,15 * * *'   # 09:00, 15:00 and 21:00 IST; GitHub can start runs a little late
   workflow_dispatch:
     inputs:
       dry_run:
