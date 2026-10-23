@@ -41,6 +41,12 @@ COLUMNS = {
     'top searched properties': 'top_props', 'total interactions': 'interactions',
 }
 SESSION_KEYS = ('duration', 'traits', 'top_props', 'interactions')
+# Extra lead columns, filled for new leads only (older rows stay empty). Optional:
+# a header missing from the sheet is simply skipped.
+EXTRA_COLUMNS = {
+    'properties viewed': 'props_viewed', 'locations browsed': 'locs_browsed', 'came from': 'came_from',
+    'visitor city': 'visitor_city', 'email type': 'email_type',
+}
 
 
 def digits(v):
@@ -83,7 +89,19 @@ def lead_row(doc, lead_id):
     captured = ' on '.join(str(p) for p in (journey.get('sourceComponent'), journey.get('sourcePage')) if p)
     score = doc.get('leadScore')
     lo, hi = budget_bounds(doc.get('budgetRange'))
+    attribution = ((doc.get('context') or {}).get('attribution') or {})
+    utm = attribution.get('lastTouchUtm') or attribution.get('utm') or {}
+    referrer = re.sub(r'^(https?://|android-app://)(www\.)?', '', str(attribution.get('referrer') or '')).split('/')[0]
+    geo = doc.get('geo') or {}
+    intel = doc.get('emailIntel') or {}
     return {
+        'props_viewed': ', '.join(p.get('name') for p in (journey.get('propertiesViewed') or [])
+                                  if isinstance(p, dict) and p.get('name')),
+        'locs_browsed': ', '.join(str(x) for x in (journey.get('locationsBrowsed') or [])),
+        'came_from': str(utm.get('source') or referrer or ''),
+        'visitor_city': ', '.join(str(x) for x in (geo.get('city'), geo.get('country')) if x),
+        'email_type': (f"{intel['type']} ({intel['company']})" if intel.get('type') == 'corporate' and intel.get('company')
+                       else str(intel.get('type') or '')),
         'lead_id': lead_id,
         'lead_date': created.strftime('%d-%b-%Y') if isinstance(created, datetime) else '',
         'name': (doc.get('name') or '').strip(),
@@ -153,10 +171,10 @@ def main(argv=None):
 
     values = ws.get_all_values()
     headers = [h.strip().lower() for h in values[0]]
-    col = {key: headers.index(h) for h, key in COLUMNS.items() if h in headers}
     missing = [h for h in COLUMNS if h not in headers]
     if missing:
         raise SystemExit(f'Sheet is missing columns: {missing}')
+    col = {key: headers.index(h) for h, key in {**COLUMNS, **EXTRA_COLUMNS}.items() if h in headers}
     rows = values[1:]
 
     def cell(r, key):
@@ -178,7 +196,8 @@ def main(argv=None):
         vals = lead_row(doc, f'L{next_id:05d}')
         row = [''] * len(headers)
         for key, v in vals.items():
-            row[col[key]] = v
+            if key in col:
+                row[col[key]] = v
         new_rows.append(row)
         pref_ids.add(vals['pref_id'])
         emails.add(email)
