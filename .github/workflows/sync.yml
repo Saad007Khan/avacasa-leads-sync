@@ -2,7 +2,7 @@ name: Leads to sheet
 
 on:
   schedule:
-    - cron: '*/5 * * * *'   # GitHub's minimum; runs can start a few minutes late
+    - cron: '30 3,15 * * *'   # 09:00 and 21:00 IST; GitHub can start runs a little late
   workflow_dispatch:
     inputs:
       dry_run:
